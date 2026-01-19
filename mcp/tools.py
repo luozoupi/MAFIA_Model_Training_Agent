@@ -11,10 +11,7 @@ def scan_hf_models(*, catalog_path: Path | None, task: str, limit: int = 5) -> l
     if catalog_path is None or not catalog_path.exists():
         return []
 
-    try:
-        data = json.loads(catalog_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Malformed JSON in catalog file {catalog_path}: {exc}") from exc
+
     candidates = []
     task_lower = task.lower()
     for entry in data:
@@ -26,33 +23,8 @@ def scan_hf_models(*, catalog_path: Path | None, task: str, limit: int = 5) -> l
     return candidates
 
 
-def run_finetune_script(*, script_path: Path, work_dir: Path, timeout: float | int = 300) -> dict[str, Any]:
-    """Execute a finetuning script and return captured output.
 
-    A timeout is applied to avoid unbounded execution of the finetuning script.
-    """
     if not script_path.exists():
         raise FileNotFoundError(f"Script not found: {script_path}")
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        result = subprocess.run(
-            ["python3", str(script_path)],
-            cwd=work_dir,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
-    except subprocess.TimeoutExpired as exc:
-        # Indicate that the script was terminated due to timeout.
-        return {
-            "returncode": -1,
-            "stdout": exc.stdout or "",
-            "stderr": (exc.stderr or "") + f"\nProcess timed out after {timeout} seconds.",
-        }
