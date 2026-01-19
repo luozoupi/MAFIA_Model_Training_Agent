@@ -11,7 +11,10 @@ def scan_hf_models(*, catalog_path: Path | None, task: str, limit: int = 5) -> l
     if catalog_path is None or not catalog_path.exists():
         return []
 
-    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Malformed JSON in catalog file {catalog_path}: {exc}") from exc
     candidates = []
     task_lower = task.lower()
     for entry in data:
