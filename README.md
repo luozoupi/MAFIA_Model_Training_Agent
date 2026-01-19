@@ -53,3 +53,18 @@ Testing single task：
 python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
 
 ```
+
+## 🧩 MCP Multi-Agent Finetuning Prototype
+
+This repo now includes a starter MCP-style multi-agent workflow (planner → coder → feedback)
+for finetuning tasks. It scans a lightweight model catalog, drafts a finetuning plan,
+generates a training script, runs it, and asks a feedback agent for the next iteration.
+
+Example run:
+
+```bash
+python3 mcp_main.py "Finetune a lightweight chat model for customer support classification" \
+  --server_type openai \
+  --model_name o3-mini \
+  --model_catalog mcp/model_catalog.json
+```
