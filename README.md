@@ -18,7 +18,10 @@ pip install torch
 pip install openai
 pip install pandas
 pip install matplotlib
+pip install datasets peft bitsandbytes trl
 ```
+
+For Hugging Face datasets or model downloads, set `HF_TOKEN` if needed.
 ## 🧩 MCP Multi-Agent Finetuning Workflow
 
 This repo includes a starter MCP-style multi-agent workflow (planner → coder → feedback)
@@ -40,15 +43,17 @@ python3 mcp_main.py "Finetune a lightweight chat model for customer support clas
 - **vLLM:** start a local OpenAI-compatible vLLM server and pass `--server_type vllm --server_address <host> --server_port <port>`.
 
 The MCP flow writes all prompts, replies, and run artifacts under `mcp_runs/<timestamp>/llm_io` for easy inspection.
+For a deeper walkthrough, see [`docs/finetuning.md`](docs/finetuning.md).
 
 ## 📦 Repository Layout (Finetuning)
 
 - `mcp_main.py`: MCP multi-agent entry point (planner → coder → feedback).
 - `mcp/`: tool registry + MCP tools + sample model catalog.
 - `prompts/`: agent prompt templates.
+- `legacy/`: archived CUDA optimization workflow.
 
 ## 🔁 Legacy CUDA Optimization
 
 The original CUDA kernel optimization workflow still exists in the repository,
 but it is no longer the primary focus. If you need it, refer to the historical
-docs and scripts under `main.py` and `KernelBench`.
+docs and scripts under `legacy/main.py` and related files.
