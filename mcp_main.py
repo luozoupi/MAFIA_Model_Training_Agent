@@ -99,7 +99,17 @@ def main() -> None:
         task=task_text,
         limit=args.model_limit,
     )
-    model_scan = scan_result.payload if scan_result.ok else []
+    model_scan: list[dict[str, Any]]
+    if scan_result.ok:
+        payload = scan_result.payload
+        if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
+            raise TypeError(
+                "scan_hf_models returned payload of unexpected type; "
+                "expected list[dict[str, Any]] when scan_result.ok is True"
+            )
+        model_scan = payload
+    else:
+        model_scan = []
 
     planner_system, planner_prompt = build_planner_prompts(
         task=task_text,
