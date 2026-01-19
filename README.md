@@ -39,21 +39,4 @@ python3 mcp_main.py "Finetune a lightweight chat model for customer support clas
 
 ### MCP Backend Notes
 
-- **API-backed models:** set the relevant API key (e.g., `OPENAI_API_KEY`) and use `--server_type openai`.
-- **vLLM:** start a local OpenAI-compatible vLLM server and pass `--server_type vllm --server_address <host> --server_port <port>`.
 
-The MCP flow writes all prompts, replies, and run artifacts under `mcp_runs/<timestamp>/llm_io` for easy inspection.
-For a deeper walkthrough, see [`docs/finetuning.md`](docs/finetuning.md).
-
-## 📦 Repository Layout (Finetuning)
-
-- `mcp_main.py`: MCP multi-agent entry point (planner → coder → feedback).
-- `mcp/`: tool registry + MCP tools + sample model catalog.
-- `prompts/`: agent prompt templates.
-- `legacy/`: archived CUDA optimization workflow.
-
-## 🔁 Legacy CUDA Optimization
-
-The original CUDA kernel optimization workflow still exists in the repository,
-but it is no longer the primary focus. If you need it, refer to the historical
-docs and scripts under `legacy/main.py` and related files.
