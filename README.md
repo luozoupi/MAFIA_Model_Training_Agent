@@ -1,6 +1,9 @@
-# CudaForge: An Agent Framework with Hardware Feedback for CUDA Kernel Optimization
+# CudaForge: MCP Multi-Agent Finetuning Framework
 
-A training-free multi-agent workflow for CUDA kernel generation and optimization, which is inspired by the iterative workflow of human experts, which contains steps such as developing initial kernels, testing correctness, analyzing hardware feedback, and iterative improvement.
+CudaForge is focused on multi-agent finetuning workflows powered by MCP-style tooling.
+The core goal is to orchestrate a planner, coder, and feedback agent to design, implement,
+and improve task-specific finetuning runs. The legacy CUDA optimization workflow now lives
+under `legacy/`.
 
 <img src="./pic/human_agents_v2.png">
 
@@ -16,40 +19,43 @@ pip install torch
 pip install openai
 pip install pandas
 pip install matplotlib
+pip install datasets peft bitsandbytes trl
 ```
-## ⚙️ CUDA Toolkit and Build Tools
-Please make sure that CUDA Toolkit and Ninja are correctly installed on your system.
-Both nvcc (the CUDA compiler) and Nsight Compute (NCU) should be accessible and have matching versions with your installed CUDA Toolkit.
 
-You can verify their availability and version consistency using:
-```
-nvcc --version
-ncu --version
-```
-If either command is not found or versions are mismatched, please reinstall or update your CUDA Toolkit and Nsight Compute accordingly.
-## 🔒 Permission Setup for Nsight Compute
-Nsight Compute (ncu) requires elevated privileges to access GPU performance counters.
-Please ensure that you have sudo or root privileges on the system.
+For Hugging Face datasets or model downloads, set `HF_TOKEN` if needed.
+## 🧩 MCP Multi-Agent Finetuning Workflow
 
-If you need to enable password-less sudo for profiling commands, you can configure it as follows:
-```
-sudo visudo
-```
-Then add the following line (replace <username> with your actual user name):
-```
-<username> ALL=(ALL) NOPASSWD: ALL
-```
-After this setup, you can run profiling commands such as sudo ncu without being prompted for a password.
+This repo includes a starter MCP-style multi-agent workflow (planner → coder → feedback)
+for finetuning tasks. It scans a lightweight model catalog, drafts a finetuning plan,
+generates a training script, runs it, and asks a feedback agent for the next iteration.
 
-## 🚀 Run
-Testing multiple tasks：
+Example run:
+
 ```bash
-python3 main.py KernelBench/level1  --first_n 100  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
-
+python3 mcp_main.py "Finetune a lightweight chat model for customer support classification" \
+  --server_type openai \
+  --model_name o3-mini \
+  --model_catalog mcp/model_catalog.json
 ```
 
-Testing single task：
-```bash
-python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
+### MCP Backend Notes
 
-```
+- **API-backed models:** set the relevant API key (e.g., `OPENAI_API_KEY`) and use `--server_type openai`.
+- **vLLM:** start a local OpenAI-compatible vLLM server and pass `--server_type vllm --server_address <host> --server_port <port>`.
+
+The MCP flow writes all prompts, replies, and run artifacts under `mcp_runs/<timestamp>/llm_io` for easy inspection.
+For a deeper walkthrough, see [`docs/finetuning.md`](docs/finetuning.md).
+
+## 📦 Repository Layout (Finetuning)
+
+- `mcp_main.py`: MCP multi-agent entry point (planner → coder → feedback).
+- `mcp/`: tool registry + MCP tools + sample model catalog.
+- `prompts/`: agent prompt templates.
+- `docs/finetuning.md`: detailed workflow guide.
+- `legacy/`: archived CUDA optimization workflow.
+
+## 🔁 Legacy CUDA Optimization
+
+The original CUDA kernel optimization workflow still exists in the repository,
+but it is no longer the primary focus. If you need it, refer to the historical
+docs and scripts under `legacy/main.py` and related files.
