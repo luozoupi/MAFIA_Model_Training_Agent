@@ -99,7 +99,7 @@ def main() -> None:
         task=task_text,
         limit=args.model_limit,
     )
-    model_scan = scan_result.payload if scan_result.ok else []
+
 
     planner_system, planner_prompt = build_planner_prompts(
         task=task_text,
