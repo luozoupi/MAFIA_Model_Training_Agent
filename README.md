@@ -1,6 +1,11 @@
-# CudaForge: An Agent Framework with Hardware Feedback for CUDA Kernel Optimization
+# CudaForge: Multi-Agent Frameworks for CUDA Optimization and MCP Finetuning
 
-A training-free multi-agent workflow for CUDA kernel generation and optimization, which is inspired by the iterative workflow of human experts, which contains steps such as developing initial kernels, testing correctness, analyzing hardware feedback, and iterative improvement.
+CudaForge provides two complementary multi-agent workflows:
+
+- **CUDA kernel optimization** with hardware feedback (the original focus).
+- **MCP-powered finetuning orchestration** with planner, coder, and feedback agents for targeted model adaptation.
+
+Both flows share the same iterative loop concept: generate an initial solution, evaluate it, and refine with structured agent feedback.
 
 <img src="./pic/human_agents_v2.png">
 
@@ -41,7 +46,7 @@ Then add the following line (replace <username> with your actual user name):
 ```
 After this setup, you can run profiling commands such as sudo ncu without being prompted for a password.
 
-## 🚀 Run
+## 🚀 CUDA Optimization Run
 Testing multiple tasks：
 ```bash
 python3 main.py KernelBench/level1  --first_n 100  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
@@ -53,3 +58,25 @@ Testing single task：
 python3 main.py KernelBench/level1/1_Square_matrix_multiplication_.py  --gpu "Quadro RTX 6000"   --server_type openai   --model_name o3   --device 0   --round 10   --subproc_id 0
 
 ```
+
+## 🧩 MCP Multi-Agent Finetuning Prototype
+
+This repo now includes a starter MCP-style multi-agent workflow (planner → coder → feedback)
+for finetuning tasks. It scans a lightweight model catalog, drafts a finetuning plan,
+generates a training script, runs it, and asks a feedback agent for the next iteration.
+
+Example run:
+
+```bash
+python3 mcp_main.py "Finetune a lightweight chat model for customer support classification" \
+  --server_type openai \
+  --model_name o3-mini \
+  --model_catalog mcp/model_catalog.json
+```
+
+### MCP Backend Notes
+
+- **API-backed models:** set the relevant API key (e.g., `OPENAI_API_KEY`) and use `--server_type openai`.
+- **vLLM:** start a local OpenAI-compatible vLLM server and pass `--server_type vllm --server_address <host> --server_port <port>`.
+
+The MCP flow writes all prompts, replies, and run artifacts under `mcp_runs/<timestamp>/llm_io` for easy inspection.
