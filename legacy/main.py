@@ -9,7 +9,7 @@ import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from run_ncu import profile_bench, load_ncu_metrics, metrics_to_prompt
+from legacy.run_ncu import profile_bench, load_ncu_metrics, metrics_to_prompt
 import matplotlib
 matplotlib.use("Agg")  # headless save
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ from agents.query_server import query_server
 from prompts.generate_custom_cuda import build_seed_prompt, default_system_prompt
 from utils.compile_and_run import compare_and_bench
 from utils.kernel_io import extract_code_block, save_kernel_code, extract_json, extract_cuda_kernel_names
-from scripts.individual import KernelIndividual  # adjust path if needed
+from legacy.scripts.individual import KernelIndividual  # adjust path if needed
 from prompts.error import build_error_prompt
 from prompts.optimization import build_optimization_prompt
 from prompts.judger_repair import build_correctness_prompts
