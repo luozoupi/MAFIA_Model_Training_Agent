@@ -7,10 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from agents.query_server import query_server
-from mcp.request_schema import validate_request_payload
-from mcp.rubric import evaluate_completion
 from mcp.tooling import MCPToolRegistry
-from mcp.tools import load_user_request, run_finetune_script, scan_hf_models
+from mcp.tools import run_finetune_script, scan_hf_models
 from prompts.mcp_coder import build_coder_prompts
 from prompts.mcp_feedback import build_feedback_prompts
 from prompts.mcp_planner import build_planner_prompts
@@ -48,11 +46,6 @@ def _build_registry() -> MCPToolRegistry:
         run_finetune_script,
         "Execute a finetuning script and capture stdout/stderr.",
     )
-    registry.register(
-        "load_user_request",
-        load_user_request,
-        "Load a structured user request JSON file.",
-    )
     return registry
 
 
@@ -88,31 +81,13 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--top_p", type=float, default=1.0)
     parser.add_argument("--model_catalog", default="mcp/model_catalog.json")
-    parser.add_argument("--request_json", default="")
     parser.add_argument("--run_dir", default="mcp_runs")
     parser.add_argument("--model_limit", type=int, default=5)
-    parser.add_argument("--max_iter", type=int, default=3)
     args = parser.parse_args()
 
     task_text = _read_task_text(args.task)
     registry = _build_registry()
     catalog_path = Path(args.model_catalog) if args.model_catalog else None
-    request_payload: dict[str, Any] | None = None
-
-    if args.request_json:
-        request_result = registry.run("load_user_request", request_path=Path(args.request_json))
-        if not request_result.ok:
-            raise RuntimeError(f"Failed to load request_json: {request_result.error}")
-        request_payload = request_result.payload
-        if not isinstance(request_payload, dict):
-            raise ValueError("request_json must contain a JSON object")
-
-        errors = validate_request_payload(request_payload)
-        if errors:
-            raise ValueError("Invalid request_json:\n- " + "\n- ".join(errors))
-
-        if request_payload.get("project_goal"):
-            task_text = str(request_payload["project_goal"])
 
     run_root = Path(args.run_dir) / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_root.mkdir(parents=True, exist_ok=True)
@@ -124,12 +99,11 @@ def main() -> None:
         task=task_text,
         limit=args.model_limit,
     )
-    model_scan = scan_result.payload if scan_result.ok else []
+
 
     planner_system, planner_prompt = build_planner_prompts(
         task=task_text,
         model_scan=model_scan,
-        request_json=request_payload,
     )
     _write_text(io_dir / "planner_prompt.txt", planner_prompt)
     planner_reply = _call_llm(planner_prompt, planner_system, args)
@@ -137,68 +111,38 @@ def main() -> None:
     plan_json = extract_json(planner_reply)
     _write_text(io_dir / "planner_plan.json", json.dumps(plan_json, indent=2))
 
-    feedback_json: dict[str, Any] | None = None
-    script_text = ""
-    run_payload: dict[str, Any] = {}
+    coder_system, coder_prompt = build_coder_prompts(task=task_text, plan=plan_json)
+    _write_text(io_dir / "coder_prompt.txt", coder_prompt)
+    coder_reply = _call_llm(coder_prompt, coder_system, args)
+    _write_text(io_dir / "coder_reply.txt", coder_reply)
 
-    for iteration in range(1, args.max_iter + 1):
-        iter_dir = run_root / f"iter_{iteration:02d}"
-        iter_io = iter_dir / "llm_io"
-        iter_dir.mkdir(parents=True, exist_ok=True)
+    script_text = _safe_extract_code(coder_reply)
+    script_path = run_root / "finetune_script.py"
+    _write_text(script_path, script_text)
 
-        coder_system, coder_prompt = build_coder_prompts(task=task_text, plan=plan_json)
-        _write_text(iter_io / "coder_prompt.txt", coder_prompt)
-        coder_reply = _call_llm(coder_prompt, coder_system, args)
-        _write_text(iter_io / "coder_reply.txt", coder_reply)
-
-        script_text = _safe_extract_code(coder_reply)
-        script_path = iter_dir / "finetune_script.py"
-        _write_text(script_path, script_text)
-
-        run_result = registry.run(
-            "run_finetune_script",
-            script_path=script_path,
-            work_dir=iter_dir,
-        )
-        run_payload = run_result.payload if run_result.ok else {
-            "returncode": -1,
-            "stdout": "",
-            "stderr": run_result.error or "Unknown error",
-        }
-        _write_text(iter_io / "run_result.json", json.dumps(run_payload, indent=2))
-
-        feedback_system, feedback_prompt = build_feedback_prompts(
-            task=task_text,
-            plan=plan_json,
-            run_output=run_payload,
-            script=script_text,
-        )
-        _write_text(iter_io / "feedback_prompt.txt", feedback_prompt)
-        feedback_reply = _call_llm(feedback_prompt, feedback_system, args)
-        _write_text(iter_io / "feedback_reply.txt", feedback_reply)
-        feedback_json = extract_json(feedback_reply)
-        _write_text(iter_io / "feedback.json", json.dumps(feedback_json, indent=2))
-
-        completion = evaluate_completion(
-            plan=plan_json,
-            feedback=feedback_json if isinstance(feedback_json, dict) else {},
-            run_payload=run_payload,
-        )
-        _write_text(iter_io / "completion_eval.json", json.dumps(completion, indent=2))
-
-        if completion["completed"]:
-            break
-
-    summary = {
-        "iterations_run": iteration,
-        "max_iter": args.max_iter,
-        "completed_early": iteration < args.max_iter,
-        "final_status": (feedback_json or {}).get("status"),
-        "rubric": (feedback_json or {}).get("rubric"),
-        "last_run": run_payload,
-        "request_json_used": bool(request_payload),
+    run_result = registry.run(
+        "run_finetune_script",
+        script_path=script_path,
+        work_dir=run_root,
+    )
+    run_payload: dict[str, Any] = run_result.payload if run_result.ok else {
+        "returncode": -1,
+        "stdout": "",
+        "stderr": run_result.error or "Unknown error",
     }
-    _write_text(run_root / "summary.json", json.dumps(summary, indent=2))
+    _write_text(io_dir / "run_result.json", json.dumps(run_payload, indent=2))
+
+    feedback_system, feedback_prompt = build_feedback_prompts(
+        task=task_text,
+        plan=plan_json,
+        run_output=run_payload,
+        script=script_text,
+    )
+    _write_text(io_dir / "feedback_prompt.txt", feedback_prompt)
+    feedback_reply = _call_llm(feedback_prompt, feedback_system, args)
+    _write_text(io_dir / "feedback_reply.txt", feedback_reply)
+    feedback_json = extract_json(feedback_reply)
+    _write_text(io_dir / "feedback.json", json.dumps(feedback_json, indent=2))
 
     print(f"Run complete. Outputs saved to {run_root}")
 

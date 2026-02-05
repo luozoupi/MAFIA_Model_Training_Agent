@@ -18,10 +18,6 @@ You can pass either a short natural-language task description or a path to a tex
 python3 mcp_main.py "Finetune a lightweight model for ticket triage"
 ```
 
-For structured enterprise workflows, pass `--request_json` with fields such as
-goal, compute budget, selected/backup models, dataset constraints, and compliance notes.
-An example is available at `examples/legal_summarization_request.json`.
-
 ## Tooling
 
 The MCP runner registers simple tools:
@@ -39,7 +35,6 @@ Each run produces:
 - `coder_prompt.txt` / `coder_reply.txt` / `finetune_script.py`
 - `run_result.json`
 - `feedback_prompt.txt` / `feedback_reply.txt` / `feedback.json`
-- `completion_eval.json` (per iteration, deterministic completion gates)
 
 These files let you iterate quickly on the plan or script without rerunning the full loop.
 
@@ -47,11 +42,6 @@ These files let you iterate quickly on the plan or script without rerunning the 
 
 - **OpenAI-compatible APIs**: set `OPENAI_API_KEY` and run with `--server_type openai`.
 - **vLLM**: start a local server and pass `--server_type vllm --server_address <host> --server_port <port>`.
-
-## YOLOv8 Example
-
-An example YOLOv8 workflow is available under `examples/yolo_v8` with a small `coco128`
-training run. See [`examples/yolo_v8/README.md`](../examples/yolo_v8/README.md).
 
 ## Next Steps
 

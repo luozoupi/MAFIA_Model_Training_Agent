@@ -1,9 +1,8 @@
 # CudaForge: MCP Multi-Agent Finetuning Framework
 
-CudaForge is focused on multi-agent finetuning workflows powered by MCP-style tooling.
+CudaForge is now focused on multi-agent finetuning workflows powered by MCP-style tooling.
 The core goal is to orchestrate a planner, coder, and feedback agent to design, implement,
-and improve task-specific finetuning runs. The legacy CUDA optimization workflow now lives
-under `legacy/`.
+and improve task-specific finetuning runs.
 
 <img src="./pic/human_agents_v2.png">
 
@@ -38,40 +37,6 @@ python3 mcp_main.py "Finetune a lightweight chat model for customer support clas
   --model_catalog mcp/model_catalog.json
 ```
 
-Structured request JSON (recommended for production usage):
-
-```bash
-python3 mcp_main.py "placeholder task" \
-  --request_json examples/legal_summarization_request.json \
-  --server_type vllm \
-  --server_address localhost \
-  --server_port 8000 \
-  --model_name Qwen/Qwen2.5-7B-Instruct
-```
-
 ### MCP Backend Notes
 
-- **API-backed models:** set the relevant API key (e.g., `OPENAI_API_KEY`) and use `--server_type openai`.
-- **vLLM:** start a local OpenAI-compatible vLLM server and pass `--server_type vllm --server_address <host> --server_port <port>`.
 
-The MCP flow writes all prompts, replies, and run artifacts under `mcp_runs/<timestamp>/llm_io` for easy inspection.
-For a deeper walkthrough, see [`docs/finetuning.md`](docs/finetuning.md).
-
-## 📦 Repository Layout (Finetuning)
-
-- `mcp_main.py`: MCP multi-agent entry point (planner → coder → feedback).
-- `mcp/`: tool registry + MCP tools + sample model catalog.
-- `prompts/`: agent prompt templates.
-- `docs/finetuning.md`: detailed workflow guide.
-- `legacy/`: archived CUDA optimization workflow.
-- `examples/`: example finetuning workflows (including YOLOv8).
-
-`--request_json` expects a JSON object containing required keys:
-`project_goal`, `model_preference`, `post_train_time_budget`, `gpu_resources`,
-`dataset_support_requirements`, `constraints_and_compliance`, and `inference_stack`.
-
-## 🔁 Legacy CUDA Optimization
-
-The original CUDA kernel optimization workflow still exists in the repository,
-but it is no longer the primary focus. If you need it, refer to the historical
-docs and scripts under `legacy/main.py` and related files.

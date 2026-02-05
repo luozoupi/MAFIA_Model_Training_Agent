@@ -16,12 +16,7 @@ Output format (JSON):
   "status": "<success|failure>",
   "issues": ["<issue1>", "<issue2>"],
   "next_round_suggestions": ["<action1>", "<action2>"],
-  "metrics": {"<name>": "<value>"},
-  "rubric": {
-    "score": "<0-1>",
-    "criteria_met": "<true|false>",
-    "summary": "<max 30 words>"
-  }
+  "metrics": {"<name>": "<value>"}
 }
 ```
 """
