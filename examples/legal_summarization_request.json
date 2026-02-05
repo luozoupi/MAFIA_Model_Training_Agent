@@ -1,0 +1,34 @@
+{
+  "project_goal": "Build a tiny LLM for legal document summarization.",
+  "model_preference": "small-scale LLM",
+  "post_train_time_budget": "2 days training allowance",
+  "gpu_resources": "2x A100 80GB",
+  "custom_dataset_path": "none",
+  "dataset_support_requirements": "Need open-source legal-document datasets for summarization, English only, avoid personally identifiable information.",
+  "constraints_and_compliance": "No private/confidential client data; output should be concise and plain-language.",
+  "inference_stack": "vLLM",
+  "selected_model": {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "why": "Strong, widely adopted small model suitable for summarization SFT/LoRA and good vLLM support."
+  },
+  "backup_models": [
+    {
+      "id": "meta-llama/Llama-3.1-8B-Instruct",
+      "why": "Popular robust backup with long context for legal documents."
+    }
+  ],
+  "dataset_plan": {
+    "use_local_dataset": false,
+    "local_dataset_path": "none",
+    "selected_open_datasets": [
+      {
+        "id": "FiscalNote/billsum",
+        "why": "Open English legislative summarization dataset with strong fit for legal summaries."
+      },
+      {
+        "id": "lighteval/legal_summarization",
+        "why": "Legal summarization pairs useful for training and evaluation."
+      }
+    ]
+  }
+}
