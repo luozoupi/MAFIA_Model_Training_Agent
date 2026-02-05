@@ -1,0 +1,26 @@
+[
+  {
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "task": "instruction tuning",
+    "params": "8B",
+    "notes": "Good baseline for LoRA finetuning."
+  },
+  {
+    "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+    "task": "instruction tuning",
+    "params": "7B",
+    "notes": "Lightweight option with broad ecosystem support."
+  },
+  {
+    "model_id": "google/gemma-2-2b-it",
+    "task": "lightweight finetune",
+    "params": "2B",
+    "notes": "Small footprint model for fast iteration."
+  },
+  {
+    "model_id": "ultralytics/yolov8n",
+    "task": "object detection",
+    "params": "3.2M",
+    "notes": "YOLOv8 nano checkpoint for quick finetuning runs."
+  }
+]
