@@ -1,0 +1,122 @@
+{
+  "project_goal": "Build a tiny LLM for legal document summarization.",
+  "model_preference": "small-scale LLM",
+  "post_train_time_budget": "2 days training allowance",
+  "gpu_resources": "2x A100 80GB",
+  "custom_dataset_path": "none",
+  "dataset_support_requirements": "Need open-source legal-document datasets for summarization, English only, avoid personally identifiable information.",
+  "constraints_and_compliance": "No private/confidential client data; output should be concise and plain-language.",
+  "inference_stack": "vLLM",
+  "selected_model": {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "why": "Strong, widely adopted small model suitable for summarization SFT/LoRA; 32k context (max_position_embeddings=32768) fits typical legal-doc inputs; good vLLM support and efficient training on 2x A100 80GB within a 2-day budget."
+  },
+  "backup_models": [
+    {
+      "id": "meta-llama/Llama-3.1-8B-Instruct",
+      "why": "Very popular and robust instruction model with very long context (131072) for long legal documents; good vLLM ecosystem; slightly larger than 7B but still practical on 2x A100."
+    }
+  ],
+  "dataset_plan": {
+    "use_local_dataset": false,
+    "local_dataset_path": "none",
+    "selected_open_datasets": [
+      {
+        "id": "FiscalNote/billsum",
+        "why": "Open (CC0-1.0), English legislative text summarization; no obvious PII; input lengths (p95 ~4572 tokens, max ~4999 est) fit comfortably within 32k context for SFT."
+      },
+      {
+        "id": "lighteval/legal_summarization",
+        "why": "Convenient packaged legal summarization dataset (BillSum config previewed) with article->summary pairs; lengths (p95 input ~3741 tokens, max ~4776 est) fit within 32k context; useful as an alternate loader/source."
+      }
+    ]
+  },
+  "notes": [
+    "Context-window check: Qwen2.5-7B-Instruct has 32768 max_position_embeddings; both selected datasets’ p95/max input lengths (~3.7k–5k tokens est) are well within this, leaving room for instructions and target summaries.",
+    "The joelniklaus/legal_case_document_summarization dataset appears to have extremely long inputs (max ~202k tokens est; p95 ~23k), so it would require aggressive chunking or a longer-context model (e.g., Llama-3.1-8B-Instruct) and careful target-field mapping (its preview showed output=dataset_name, not summary).",
+    "For compliance/plain-language outputs: add an instruction template during SFT (e.g., 'Summarize in plain English, concise, no legal advice, no names/addresses') and optionally filter any rare PII-like patterns before training."
+  ],
+  "selection_metadata": {
+    "selected_model_metadata": {
+      "id": "Qwen/Qwen2.5-7B-Instruct",
+      "parameter_scale_hint": "7B",
+      "downloads": 9135077,
+      "likes": 1047,
+      "context_window": 32768,
+      "model_type": "qwen2",
+      "architectures": [
+        "Qwen2ForCausalLM"
+      ],
+      "num_hidden_layers": 28,
+      "hidden_size": 3584,
+      "num_attention_heads": 28,
+      "torch_dtype": "bfloat16"
+    },
+    "selected_dataset_metadata": [
+      {
+        "id": "FiscalNote/billsum",
+        "ok": true,
+        "config": "default",
+        "split": "train",
+        "total_rows": 23455,
+        "split_rows": 18949,
+        "sample_rows": 5,
+        "len_stats_scope": "full_split_scan",
+        "full_scan_rows_scanned": 18949,
+        "stats_warning": null,
+        "primary_input_field": "text",
+        "primary_output_field": "title",
+        "p95_input_len_tokens_est": 4572,
+        "p95_output_len_tokens_est": 73,
+        "max_input_len_tokens_est": 4999,
+        "max_output_len_tokens_est": 240,
+        "sample_pairs": [
+          {
+            "input": "SECTION 1. LIABILITY OF BUSINESS ENTITIES PROVIDING USE OF FACILITIES TO NONPROFIT ORGANIZATIONS. (a) Definitions.--In this section: (1) Business entity.--The term ``business entity'' means a firm, corporation, association, partnership, consortium, joint ve...",
+            "output": "A bill to limit the civil liability of business entities providing use of facilities to nonprofit organizations."
+          },
+          {
+            "input": "SECTION 1. SHORT TITLE. This Act may be cited as the ``Human Rights Information Act''. SEC. 2. FINDINGS. Congress finds the following: (1) The people of the United States consider the national and international protection and promotion of human rights and t...",
+            "output": "Human Rights Information Act"
+          },
+          {
+            "input": "SECTION 1. SHORT TITLE. This Act may be cited as the ``Jackie Robinson Commemorative Coin Act''. SEC. 2. COIN SPECIFICATIONS. (a) $1 Silver Coins.--In commemoration of the 50th anniversary of the breaking of the color barrier in major league baseball by Jac...",
+            "output": "Jackie Robinson Commemorative Coin Act"
+          }
+        ]
+      },
+      {
+        "id": "lighteval/legal_summarization",
+        "ok": true,
+        "config": "BillSum",
+        "split": "train",
+        "total_rows": 26860,
+        "split_rows": 18949,
+        "sample_rows": 5,
+        "len_stats_scope": "full_split_scan",
+        "full_scan_rows_scanned": 18949,
+        "stats_warning": null,
+        "primary_input_field": "article",
+        "primary_output_field": "summary",
+        "p95_input_len_tokens_est": 3741,
+        "p95_output_len_tokens_est": 650,
+        "max_input_len_tokens_est": 4776,
+        "max_output_len_tokens_est": 1241,
+        "sample_pairs": [
+          {
+            "input": "SECTION 1. LIABILITY OF BUSINESS ENTITIES PROVIDING USE OF FACILITIES TO NONPROFIT ORGANIZATIONS. (a) Definitions.--In this section: (1) Business entity.--The term ``business entity'' means a firm, corporation, association, partnership, consortium, joint ve...",
+            "output": "Shields a business entity from civil liability relating to any injury or death occurring at a facility of that entity in connection with a use of such facility by a nonprofit organization if: (1) the use occurs outside the scope of business of the business ..."
+          },
+          {
+            "input": "SECTION 1. SHORT TITLE. This Act may be cited as the ``Human Rights Information Act''. SEC. 2. FINDINGS. Congress finds the following: (1) The people of the United States consider the national and international protection and promotion of human rights and t...",
+            "output": "Human Rights Information Act - Requires certain Federal agencies to identify and organize all human rights records regarding activities occurring in Guatemala and Honduras after 1944 for declassification and disclosure purposes, and to make them available t..."
+          },
+          {
+            "input": "SECTION 1. SHORT TITLE. This Act may be cited as the ``Jackie Robinson Commemorative Coin Act''. SEC. 2. COIN SPECIFICATIONS. (a) $1 Silver Coins.--In commemoration of the 50th anniversary of the breaking of the color barrier in major league baseball by Jac...",
+            "output": "Jackie Robinson Commemorative Coin Act - Directs the Secretary of the Treasury to: (1) mint and issue one-dollar silver coins emblematic of Jackie Robinson in commemoration of the 50th anniversary of the breaking of the color barrier in major league basebal..."
+          }
+        ]
+      }
+    ]
+  }
+}

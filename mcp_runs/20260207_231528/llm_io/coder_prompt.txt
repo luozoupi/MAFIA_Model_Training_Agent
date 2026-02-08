@@ -1,0 +1,11 @@
+
+# Task
+Finetune a small model for text classification on IMDB sentiment dataset
+
+# Plan (JSON)
+{'task_summary': 'Finetune a lightweight model for IMDB sentiment classification with efficient LoRA training', 'recommended_model': 'google/gemma-2-2b-it', 'training_recipe': {'method': 'LoRA', 'epochs': 3, 'batch_size': 16, 'learning_rate': 0.0002, 'dataset': 'imdb', 'metrics': ['accuracy', 'f1']}, 'tool_calls': [{'tool': 'scan_hf_models', 'args': {'query': 'text classification small', 'limit': 5}}, {'tool': 'run_finetune_script', 'args': {'script_path': 'scripts/finetune_lora.py'}}]}
+
+Produce the finetuning script as:
+```python
+# code here
+```

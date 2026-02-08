@@ -1,0 +1,19 @@
+{
+  "status": "failure",
+  "issues": [
+    "BFloat16 compatibility error with CUDA: '_amp_foreach_non_finite_check_and_unscale_cuda' not implemented",
+    "Gradient checkpointing conflict with cache usage",
+    "Deprecated argument usage: `torch_dtype` should be replaced with `dtype`"
+  ],
+  "next_round_suggestions": [
+    "Switch to float16 precision by explicitly setting model dtype to torch.float16",
+    "Disable gradient_checkpointing in TrainingArguments to avoid compatibility issues",
+    "Update PyTorch and CUDA toolchain to latest versions for BFloat16 support",
+    "Reduce sequence length further (currently 256) to save VRAM if precision issues persist"
+  ],
+  "metrics": {
+    "trainable_parameters": 3199488,
+    "dataset_loading_speed": "10k examples/s (training)",
+    "dataset_loading_speed_eval": "11k examples/s (validation)"
+  }
+}

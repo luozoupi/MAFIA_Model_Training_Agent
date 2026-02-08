@@ -1,0 +1,17 @@
+{
+  "status": "failure",
+  "issues": [
+    "Training timed out after 2 hours (7200s), likely due to model size/resource constraints",
+    "Gemma-2-2b-it may be too large for available hardware with batch_size=16"
+  ],
+  "next_round_suggestions": [
+    "Reduce batch size to 8 or 4 to lower memory usage",
+    "Try smaller model variant (e.g., gemma-2-1b if available)",
+    "Add mixed precision training (FP16) if not already enabled"
+  ],
+  "metrics": {
+    "timeout_duration_seconds": 7200,
+    "original_batch_size": 16,
+    "model_size": "2.2B parameters"
+  }
+}

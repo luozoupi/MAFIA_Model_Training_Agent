@@ -1,0 +1,17 @@
+{
+  "status": "failure",
+  "issues": [
+    "Training failed due to invalid keyword argument 'evaluation_strategy' in TrainingArguments",
+    "Model initialization warning: 'score.weight' requires training"
+  ],
+  "next_round_suggestions": [
+    "Update 'evaluation_strategy' to 'eval_strategy' in TrainingArguments (Transformers v4.27+ uses new naming)",
+    "Verify transformers library version compatibility with the script",
+    "Add error handling for parameter deprecation warnings"
+  ],
+  "metrics": {
+    "trainable_parameters": 3199488,
+    "total_parameters": 2617545984,
+    "trainable_percentage": 0.1222
+  }
+}

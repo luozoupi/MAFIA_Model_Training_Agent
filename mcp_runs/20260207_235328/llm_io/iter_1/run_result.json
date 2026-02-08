@@ -1,0 +1,5 @@
+{
+  "returncode": -1,
+  "stdout": "",
+  "stderr": "Command '['conda', 'run', '-n', 'py310', '--no-capture-output', 'python3', '/home/luo00466/MAFIA_Model_Training_Agent/mcp_runs/20260207_235328/finetune_script_iter1.py']' timed out after 7200 seconds"
+}

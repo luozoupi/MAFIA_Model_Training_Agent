@@ -1,0 +1,104 @@
+<think>
+Okay, let's see. The user wants a finetuning script for the IMDB sentiment dataset using LoRA on the Gemma-2-2b-it model. The environment has specific packages installed, so I need to make sure the code uses compatible versions.
+
+First, I need to set up the CUDA_VISIBLE_DEVICES to use GPU 0. Then, import necessary libraries: transformers, peft, datasets, etc. The model is from Hugging Face, so I'll load it with AutoModelForSequenceClassification. Since it's a binary classification, num_labels should be 2.
+
+LoRA requires the PeftModel. I'll add a LoraConfig with the specified parameters like r=8, alpha=16, dropout=0.1. The training arguments should include output_dir, num_train_epochs=3, per_device_batch_size=16, learning_rate=0.0002, and evaluation strategy.
+
+The dataset is IMDB, so I'll load it using load_dataset. The tokenizer is from the model, and I need to preprocess the text. The collate function will handle tokenizing the text and labels.
+
+Training with Trainer, including the compute_metrics function for accuracy and f1. I'll use the evaluate library's accuracy and f1 metrics. Make sure to set the device correctly for the model.
+
+Wait, the user mentioned using GPU 0, so the script should automatically use that. Also, check if the model needs any quantization, but since bitsandbytes is installed, maybe use 4-bit quantization to save memory. Oh, the LoraConfig example in the code uses 4bit, so that's good.
+
+Testing the script for syntax errors. All imports are there, the dataset is loaded, tokenized, and the model is configured with LoRA. The training loop should run for 3 epochs with the specified batch size. Metrics are computed correctly. I think that's all. Let me put it all together.
+</think>
+
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+import torch
+
+# Configuration
+model_name = "google/gemma-2-2b-it"
+dataset_name = "imdb"
+num_labels = 2
+output_dir = "./results"
+batch_size = 16
+learning_rate = 2e-4
+epochs = 3
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels, trust_remote_code=True)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Load and preprocess dataset
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+
+dataset = load_dataset(dataset_name)
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    logits, labels = pred
+    predictions = torch.argmax(torch.tensor(logits), dim=-1)
+    return {
+        "accuracy": accuracy.compute(predictions=predictions, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=predictions, references=labels, average="macro")["f1"]
+    }
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir=output_dir,
+    evaluation_strategy="epoch",
+    learning_rate=learning_rate,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
+    num_train_epochs=epochs,
+    logging_dir="./logs",
+    logging_steps=100,
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    compute_metrics=compute_metrics
+)
+
+# Start training
+print("Starting training...")
+trainer.train()
+
+# Final evaluation
+print("Evaluating...")
+results = trainer.evaluate()
+print(f"Final evaluation results: {results}")
+```

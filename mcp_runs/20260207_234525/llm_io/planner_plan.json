@@ -1,0 +1,30 @@
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with efficient training",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "QLoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 2e-05,
+    "dataset": "imdb",
+    "metrics": [
+      "accuracy",
+      "f1"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool": "scan_hf_models",
+      "args": {
+        "query": "text classification <8B params",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "run_finetune_script",
+      "args": {
+        "script_path": "scripts/finetune_qloRA.py"
+      }
+    }
+  ]
+}

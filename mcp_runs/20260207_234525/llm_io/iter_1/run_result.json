@@ -1,0 +1,5 @@
+{
+  "returncode": -1,
+  "stdout": "",
+  "stderr": "/dev/null is a non-regular file and will be changed into a regular one if import writes a byte-compiled file to it"
+}

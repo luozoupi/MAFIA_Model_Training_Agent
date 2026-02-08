@@ -1,0 +1,30 @@
+<think>
+Okay, let's tackle this problem. The user wants to fine-tune a small model for text classification on the IMDB sentiment dataset. They provided some model scan results.
+
+First, I need to choose the right model. The available options are Llama-3.1-8B-Instruct, Mistral-7B-Instruct-v0.3, and Gemma-2-2b-it. The task is text classification, and they mentioned a small model. Gemma-2-2b-it has 2B parameters, which is the smallest here. The note says it's for fast iteration, so that fits "small model" and "fast".
+
+Next, the training recipe. Since it's a small model and they want efficiency, LoRA is a good method. Maybe 3 epochs to prevent overfitting. Batch size 16 is manageable. Learning rate 2e-4 is standard for LoRA. The dataset is IMDB, so I'll use that. Metrics should include accuracy and F1 score for classification.
+
+Tool calls: They need to scan Hugging Face models, but the user already provided scan results. Wait, the model scan results are given, but maybe the tool call is to confirm or get more details? The user's instruction says "if any" for the scan results, so maybe the tool call is still needed. But the example in the output format includes a scan_hf_models call. Let me check the example again. The example includes a scan_hf_models tool call with a query. Since the user provided scan results, maybe the tool call is redundant, but the instructions say to return the JSON plan with tool calls. So perhaps include the scan_hf_models tool call as part of the plan even if there are existing results. Maybe the user wants the plan to include steps to be executed, so the scan is part of the process. Alternatively, since the scan results are already provided, maybe the tool call isn't needed. But the example shows that tool calls are included regardless. Hmm. The user's instruction says "Provide the JSON plan. Keep it executable and aligned with the available models." So perhaps the tool calls are part of the plan steps. The scan_hf_models tool call would be to get the models, but since they are already provided, maybe the tool call is not necessary. However, the example includes it. Maybe the user expects the tool call to be included even if there are existing results. So I'll include the scan_hf_models tool call with a query related to the task. The query could be "text classification" and limit 5. Then the run_finetune_script tool call with the script path.
+
+Putting it all together: task_summary is concise, recommended_model is gemma-2-2b-it, training_recipe with LoRA, 3 epochs, batch 16, learning rate 2e-4, dataset imdb, metrics accuracy and f1. Tool calls include scan_hf_models with query and run the script.
+</think>
+
+```json
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with fast iteration",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "LoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 2e-4,
+    "dataset": "imdb",
+    "metrics": ["accuracy", "f1"]
+  },
+  "tool_calls": [
+    {"tool": "scan_hf_models", "args": {"query": "text classification", "limit": 5}},
+    {"tool": "run_finetune_script", "args": {"script_path": "scripts/finetune_lora.py"}}
+  ]
+}
+```

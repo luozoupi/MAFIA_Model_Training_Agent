@@ -1,0 +1,89 @@
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+    BitsAndBytesConfig
+)
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model, TaskType
+from sklearn.metrics import accuracy_score, f1_score
+
+# Model and dataset setup
+model_name = "google/gemma-2-2b-it"
+dataset = load_dataset("imdb")
+
+# Load tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side="left")
+tokenizer.pad_token = tokenizer.eos_token
+
+# Load model with 8-bit quantization to save memory
+bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    num_labels=2,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    inference_mode=False,
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "v_proj"]
+)
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Tokenize dataset
+def tokenize_function(examples):
+    return tokenizer(
+        examples["text"],
+        padding="max_length",
+        truncation=True,
+        max_length=512,
+        return_tensors="pt"
+    )
+
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir="./gemma-imdb-finetuned",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    learning_rate=2e-4,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    logging_dir="./logs",
+    logging_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Metrics computation
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    acc = accuracy_score(labels, preds)
+    f1 = f1_score(labels, preds, average="binary")
+    return {"accuracy": acc, "f1": f1}
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+# Train
+print("Starting training...")
+trainer.train()

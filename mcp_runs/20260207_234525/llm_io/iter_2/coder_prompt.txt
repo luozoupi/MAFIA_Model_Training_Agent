@@ -1,0 +1,205 @@
+# Task
+Finetune a small model for text classification on IMDB sentiment dataset
+
+# Plan (JSON)
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with efficient training",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "QLoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 2e-05,
+    "dataset": "imdb",
+    "metrics": [
+      "accuracy",
+      "f1"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool": "scan_hf_models",
+      "args": {
+        "query": "text classification <8B params",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "run_finetune_script",
+      "args": {
+        "script_path": "scripts/finetune_qloRA.py"
+      }
+    }
+  ]
+}
+
+# Runtime Environment
+Python: 3.10.18
+Conda environment: py310
+Installed packages:
+  - transformers==4.57.3
+  - peft==0.18.1
+  - trl==0.27.2
+  - torch==2.9.0+cu128
+  - datasets==4.4.1
+  - accelerate==1.12.0
+  - bitsandbytes==0.49.1
+  - evaluate==0.4.6
+GPUs:
+  - GPU 0: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free [ASSIGNED]
+  - GPU 1: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free
+  - GPU 2: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free
+  - GPU 3: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 6.4GB free
+  - GPU 4: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 6.4GB free
+Use ONLY these GPUs: [0]
+
+# Previous Script (FAILED)
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"  # Avoid symlink warnings
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+import torch
+import logging
+
+# Configure logging to capture all messages
+logging.basicConfig(level=logging.INFO)
+
+# Load IMDB dataset
+dataset = load_dataset("imdb")
+train_dataset = dataset["train"]
+test_dataset = dataset["test"]
+
+# Split train into train/val
+train_val = train_dataset.train_test_split(test_size=0.1)
+train_dataset = train_val["train"]
+val_dataset = train_val["test"]
+
+# Load tokenizer and model with 4-bit quantization
+model_id = "google/gemma-2-2b-it"
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16
+)
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_id,
+    num_labels=2,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+tokenizer.pad_token = tokenizer.eos_token
+
+# Tokenize dataset
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+
+tokenized_train = train_dataset.map(tokenize_function, batched=True)
+tokenized_val = val_dataset.map(tokenize_function, batched=True)
+
+# Setup PEFT configuration (adjusted for Gemma architecture)
+peft_config = LoraConfig(
+    r=64,
+    lora_alpha=16,
+    target_modules=["q_proj", "v_proj"],  # Simplified target modules for Gemma
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Define metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    return {
+        "accuracy": accuracy.compute(predictions=preds, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=preds, references=labels, average="binary")["f1"]
+    }
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir="./results",
+    save_strategy="epoch",
+    evaluation_strategy="epoch",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=3,
+    logging_dir="./logs",
+    load_best_model_at_end=True,
+    metric_for_best_model="accuracy",
+    report_to="none"  # Disable wandb to avoid extra dependencies
+)
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_train,
+    eval_dataset=tokenized_val,
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+# Train
+print("Starting training...")
+try:
+    train_result = trainer.train()
+    print(f"Training completed. Metrics: {train_result.metrics}")
+    
+    # Evaluate on test set
+    print("Evaluating on test set...")
+    test_metrics = trainer.evaluate(tokenized_val)
+    print(f"Test metrics: {test_metrics}")
+    
+    # Save model
+    trainer.save_model("./final_model")
+except Exception as e:
+    print(f"Training failed with error: {str(e)}")
+    raise
+```
+
+# Execution Output
+{
+  "returncode": -1,
+  "stdout": "",
+  "stderr": "/dev/null is a non-regular file and will be changed into a regular one if import writes a byte-compiled file to it"
+}
+
+# Feedback (issues found)
+{
+  "status": "failure",
+  "issues": [
+    "Model loading failure with Gemma-2-2b-it (possible architecture incompatibility with PEFT/QLoRA setup)",
+    "Quantization configuration issues (4bit + nf4 might not be supported for Gemma)",
+    "Missing error traceback in output (exception propagation incomplete)"
+  ],
+  "next_round_suggestions": [
+    "Verify Gemma's compatible PEFT target modules (current ['q_proj','v_proj'] might be incorrect)",
+    "Try disabling 4bit quantization first to isolate the issue",
+    "Add detailed exception logging to capture full error stack trace",
+    "Test with smaller batch size (16 might be too large for 2B parameter model in 4bit)"
+  ],
+  "metrics": {
+    "training_epochs_completed": 0,
+    "accuracy": null,
+    "f1_score": null
+  }
+}
+
+Fix all issues and produce a corrected finetuning script as:
+```python
+# code here
+```

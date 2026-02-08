@@ -1,0 +1,30 @@
+<think>
+Okay, let's tackle this problem. The user wants to fine-tune a small model for text classification on the IMDB sentiment dataset. They provided some model scan results.
+
+First, I need to choose the right model. The available options are Llama-3.1-8B-Instruct, Mistral-7B-Instruct-v0.3, and Gemma-2-2b-it. The task is text classification, and they mentioned a small model. Gemma-2-2b-it has 2B parameters, which is the smallest here. The note says it's for fast iteration, so that fits the "small model" requirement. So I'll go with google/gemma-2-2b-it.
+
+Next, the training recipe. Since it's a small model and they want efficiency, using QLoRA makes sense. QLoRA quantizes the model to 4-bit, saving memory. The dataset is IMDB, so I'll specify that. For epochs, 3 is a common starting point. Batch size 16 is manageable. Learning rate 2e-5 is typical for fine-tuning. Metrics should include accuracy and f1 for classification.
+
+Tool calls: The user already scanned models, but maybe include a scan_hf_models call with the query to show how it's done. Then run the finetune script with the specified parameters.
+
+Check if everything aligns. The model is in the scan results, the method is QLoRA, dataset is IMDB. Metrics are relevant. Tool calls are appropriate. Looks good.
+</think>
+
+```json
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with efficient training",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "QLoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 2e-5,
+    "dataset": "imdb",
+    "metrics": ["accuracy", "f1"]
+  },
+  "tool_calls": [
+    {"tool": "scan_hf_models", "args": {"query": "text classification <8B params", "limit": 5}},
+    {"tool": "run_finetune_script", "args": {"script_path": "scripts/finetune_qloRA.py"}}
+  ]
+}
+```

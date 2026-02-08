@@ -1,0 +1,11 @@
+{
+  "status": "failure",
+  "issues": [
+    "Syntax error in function definition: 'def tokenize examples(examples):' contains invalid space in function name"
+  ],
+  "next_round_suggestions": [
+    "Rename function 'tokenize examples' to 'tokenize_examples' to fix syntax error",
+    "Verify all function definitions follow Python naming conventions"
+  ],
+  "metrics": {}
+}

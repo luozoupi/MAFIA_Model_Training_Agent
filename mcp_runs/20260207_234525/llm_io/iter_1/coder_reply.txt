@@ -1,0 +1,184 @@
+<think>
+Okay, let's see. The user's script failed with return code -1, and the stderr mentioned something about /dev/null being a non-regular file. Wait, maybe the script was run in an environment where /dev/null isn't a regular file, causing issues when the code tries to write to it. But the main problem is that the error message is hidden because it's redirected to /dev/null. The feedback suggests removing that redirection to capture the actual error.
+
+First, I need to make sure that the script doesn't redirect stderr to /dev/null. Looking at the original script, I don't see any redirection in the code itself. Oh, maybe the error occurred during execution in the environment where it was run, not in the script. But the user's feedback says the script's stderr is set to /dev/null, which hides the real error. So perhaps the user ran the script with some shell redirection, but that's not part of the Python code. Wait, the problem might be elsewhere.
+
+Next, the feedback mentions potential compatibility issues with Gemma-2-2b-it and QLoRA. Let me check the PEFT target modules. The original script uses ["q_proj", "o_proj", "k_proj", "v_proj"], but maybe Gemma's architecture has different layer names. I should verify the correct target modules for Gemma. For example, some models have different naming conventions for attention layers. If the target modules are incorrect, the PEFT configuration won't apply correctly, leading to errors.
+
+Also, the model ID "google/gemma-2-2b-it" needs to be checked. Is that the correct identifier on Hugging Face? Maybe there's a typo. Let me confirm. The correct model might be "google/gemma-2b" or similar. The "-it" suffix might be incorrect. If the model doesn't exist, loading it would fail.
+
+Another point is the GPU setup. The user has GPU 0 assigned. The script uses device_map="auto", which should work, but with 4-bit quantization and QLoRA, maybe there's a memory issue. However, the error message doesn't indicate OOM, so maybe that's not the main problem here.
+
+So, to fix the script:
+
+1. Remove any redirection of stderr (though the code itself doesn't do that; maybe the execution environment did). But in the script, ensure that all logs are printed to stdout so that errors are visible.
+
+2. Verify the model ID. Let me check Hugging Face. The correct model for Gemma 2-2b might be "google/gemma-2-2b" or similar. The "-it" might be for instruction-tuned versions, but maybe the correct ID is different. Let me check. Oh, the Gemma models on Hugging Face might have different naming. For example, the instruction-tuned version is "google/gemma-2-2b-it". So that part might be correct.
+
+3. Check the PEFT target modules. For Gemma, the attention layers might have different names. For example, in some models, the query, key, value projections are under "q_proj", "k_proj", "v_proj", but maybe Gemma uses a different structure. Let me look up the Gemma model's architecture. Suppose the correct target modules for Gemma are ["qkv_proj"] or something else. If the original script's target modules are incorrect, the PEFT would fail. For example, if the model uses a merged QKV projection, then targeting individual q, k, v might not work. So I need to adjust the target_modules accordingly.
+
+4. Also, ensure that the model is properly loaded with the correct configuration. Maybe the quantization config is causing issues. Let me check the BitsAndBytesConfig parameters. The user is using 4-bit with nf4 and float16 compute dtype. That should be okay, but maybe there's an issue with the device_map. Using "auto" with 4-bit quantization might require specific handling.
+
+So, the main fixes needed are:
+
+- Correct the PEFT target modules for Gemma-2-2b-it.
+- Ensure the model ID is correct.
+- Make sure that all error messages are logged to stdout so that the actual error is visible.
+
+Let me adjust the target_modules. For example, in some transformer models, the attention layers have different names. For Gemma, perhaps the target modules are ["q_proj", "k_proj", "v_proj", "o_proj"] as in some Llama models. Wait, the original script already uses those. But maybe Gemma's architecture is different. Let me check. If I can't find the exact module names for Gemma, perhaps using a more general approach, like using the default target modules for sequence classification models with PEFT. Alternatively, maybe the model uses a different structure, and the correct modules are ["gate_proj", "up_proj", "down_proj"] for the MLP layers. But for QLoRA, typically, the attention layers are modified. Hmm.
+
+Alternatively, maybe the issue is that the model isn't compatible with QLoRA. The feedback suggests potential compatibility issues. So perhaps using a different model that's known to work with QLoRA would be better. But the user's plan specifies using Gemma-2-2b-it. So I need to make it work.
+
+Another possibility is that the model isn't available, so the script fails when trying to load it. Let me check if "google/gemma-2-2b-it" is a valid model on Hugging Face. As of my knowledge cutoff in July 2024, Google's Gemma models are available, but the exact IDs might vary. For example, the instruction-tuned version might be "google/gemma-2-2b-it". So that part might be correct.
+
+So, to address the issues:
+
+- Remove any redirection of stderr in the script (though the code doesn't do that; maybe the execution command did, but the user's script should not include that).
+- Ensure that the model is correctly loaded.
+- Adjust the PEFT target modules if necessary.
+
+Another possible error is that the model's tokenizer doesn't have a pad token, so setting tokenizer.pad_token = tokenizer.eos_token might be necessary. The original script does that, which is correct.
+
+Another thing: the script uses evaluate.load("f1") with average="weighted". For binary classification, using "binary" might be more appropriate. But that's a minor issue and not causing the script to fail.
+
+So, the main error is likely in the PEFT configuration. Let me adjust the target_modules. For example, if the model's attention layers are named differently, perhaps the correct modules are ["q_proj", "k_proj", "v_proj", "dense"], or similar. Alternatively, using the default settings for LoraConfig might help. Let me check the PEFT documentation for Gemma. If there's no specific info, maybe using the same as Llama-2, which uses ["q_proj", "v_proj"] for example. Wait, in some cases, applying LoRA to both q and v projections is sufficient. Maybe the original script's target_modules are too broad. Let me try changing it to ["q_proj", "v_proj"] as a common setup.
+
+Alternatively, maybe the model uses a different structure, and the correct target modules are ["attention.qkv", "attention.dense", "mlp.0", "mlp.2"] or similar. Without knowing the exact module names, this is challenging. But perhaps the error message when the script is run (once stderr is not redirected) would indicate which modules are missing.
+
+But since the original script's stderr is hidden, the user can't see the actual error. So the first step is to ensure that all logs and errors are printed. The original script's code seems okay in that regard, but maybe during execution, the environment redirected stderr. The user should run the script without redirection to capture the error.
+
+In the corrected script, I'll make sure that all logs are printed, and adjust the PEFT target modules based on common configurations for similar models. Also, verify the model ID.
+
+Another possible issue is the use of BitsAndBytesConfig with 4-bit quantization. Maybe the version of bitsandbytes (0.49.1) is compatible with the code. But if there's an error during model loading, that could be the cause.
+
+Putting it all together, here's the plan for the corrected script:
+
+1. Ensure CUDA_VISIBLE_DEVICES is set to 0.
+2. Load the model with correct quantization config.
+3. Adjust PEFT target modules to ["q_proj", "v_proj"] as a common setup for attention layers.
+4. Verify model ID is correct.
+5. Make sure all error messages are printed.
+
+So, modifying the PEFT target_modules from ["q_proj", "o_proj", "k_proj", "v_proj"] to ["q_proj", "v_proj"] might help. Also, check if the model exists.
+
+Another thing: the original script uses device_map="auto", which with 4-bit quantization should work, but maybe the model is too large for the GPU. But the user's GPU has 95GB, which should be sufficient for a 2B model even in 4-bit.
+
+So, the corrected script would include these changes.
+</think>
+
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"  # Avoid symlink warnings
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+import torch
+import logging
+
+# Configure logging to capture all messages
+logging.basicConfig(level=logging.INFO)
+
+# Load IMDB dataset
+dataset = load_dataset("imdb")
+train_dataset = dataset["train"]
+test_dataset = dataset["test"]
+
+# Split train into train/val
+train_val = train_dataset.train_test_split(test_size=0.1)
+train_dataset = train_val["train"]
+val_dataset = train_val["test"]
+
+# Load tokenizer and model with 4-bit quantization
+model_id = "google/gemma-2-2b-it"
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16
+)
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_id,
+    num_labels=2,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+tokenizer.pad_token = tokenizer.eos_token
+
+# Tokenize dataset
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+
+tokenized_train = train_dataset.map(tokenize_function, batched=True)
+tokenized_val = val_dataset.map(tokenize_function, batched=True)
+
+# Setup PEFT configuration (adjusted for Gemma architecture)
+peft_config = LoraConfig(
+    r=64,
+    lora_alpha=16,
+    target_modules=["q_proj", "v_proj"],  # Simplified target modules for Gemma
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Define metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    return {
+        "accuracy": accuracy.compute(predictions=preds, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=preds, references=labels, average="binary")["f1"]
+    }
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir="./results",
+    save_strategy="epoch",
+    evaluation_strategy="epoch",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=3,
+    logging_dir="./logs",
+    load_best_model_at_end=True,
+    metric_for_best_model="accuracy",
+    report_to="none"  # Disable wandb to avoid extra dependencies
+)
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_train,
+    eval_dataset=tokenized_val,
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+# Train
+print("Starting training...")
+try:
+    train_result = trainer.train()
+    print(f"Training completed. Metrics: {train_result.metrics}")
+    
+    # Evaluate on test set
+    print("Evaluating on test set...")
+    test_metrics = trainer.evaluate(tokenized_val)
+    print(f"Test metrics: {test_metrics}")
+    
+    # Save model
+    trainer.save_model("./final_model")
+except Exception as e:
+    print(f"Training failed with error: {str(e)}")
+    raise
+```

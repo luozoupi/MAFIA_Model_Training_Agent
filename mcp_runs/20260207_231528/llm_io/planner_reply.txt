@@ -1,0 +1,30 @@
+<think>
+Okay, let's tackle this problem. The user wants to fine-tune a small model for text classification on the IMDB sentiment dataset. They provided some model scan results.
+
+First, I need to choose the right model. The available options are Llama-3.1-8B-Instruct, Mistral-7B-Instruct-v0.3, and Gemma-2-2b-it. The task is text classification, and they mentioned a small model. Gemma-2-2b-it has 2B parameters, which is the smallest here. The note says it's for fast iteration, so that fits "small model" and "fast".
+
+Next, the training recipe. Since it's a small model and they want efficiency, LoRA is a good method. Maybe 3 epochs to prevent overfitting. Batch size 16 is manageable. Learning rate 2e-4 is standard for LoRA. The dataset is IMDB, so I'll use that. Metrics should include accuracy and F1 score for classification.
+
+Tool calls: They need to scan Hugging Face models with a query. The query should be something like "text classification small". Then run the finetune script. The script path would be a typical one, maybe using a training script from a library like Hugging Face's.
+
+Check if everything aligns. The recommended model is Gemma-2-2b-it, which is in the scan results. The parameters make sense for a small model. The tool calls are appropriate. I think that's it.
+</think>
+
+```json
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with efficient LoRA training",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "LoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 2e-4,
+    "dataset": "imdb",
+    "metrics": ["accuracy", "f1"]
+  },
+  "tool_calls": [
+    {"tool": "scan_hf_models", "args": {"query": "text classification small", "limit": 5}},
+    {"tool": "run_finetune_script", "args": {"script_path": "scripts/finetune_lora.py"}}
+  ]
+}
+```

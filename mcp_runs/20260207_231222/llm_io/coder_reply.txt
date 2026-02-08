@@ -1,0 +1,385 @@
+<think>
+Okay, I need to create a Python script for finetuning a model on the IMDB dataset using LoRA. The user specified the model as 'google/gemma-2-2b-it', but wait, I remember that Gemma might not be the best choice here. Let me check. Oh, right, the IMDB dataset is for text classification, and the model should be a causal language model. But maybe the user wants to use a model that's suitable for text classification. Wait, the recommended model is Gemma, which is a language model. Hmm, maybe they want to adapt it for classification. Alternatively, perhaps a model like DistilBERT would be better. But according to the plan, the recommended model is 'google/gemma-2-2b-it', so I should proceed with that.
+
+Wait, but the 'google/gemma-2-2b-it' model might not be available on Hugging Face. Let me confirm. Oh, maybe the user made a typo. The correct model name could be 'google/gemma-2b' or similar. But I'll use the one provided in the plan.
+
+Next, the training parameters: LoRA, 3 epochs, batch size 16, learning rate 0.0002. The dataset is IMDB, which is a binary classification task. The metrics are accuracy and F1.
+
+I need to use the Hugging Face Transformers library. So, I'll start by importing necessary modules: AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer, etc. Also, I need to load the IMDB dataset using datasets.load_dataset('imdb').
+
+Wait, the model needs to be a sequence classification model. So, I should use AutoModelForSequenceClassification from_pretrained, with num_labels=2.
+
+For LoRA, I'll need to use the peft library. So, I'll import LoraConfig, TaskType, and prepare_model_for_kbit_training. Also, apply the LoRA configuration to the model.
+
+The dataset needs to be tokenized. I'll write a function to tokenize the texts. Then, map it over the dataset.
+
+Training arguments: output_dir, num_train_epochs=3, per_device_train_batch_size=16, learning_rate=2e-4, evaluation_strategy='epoch', save_strategy='epoch', load_best_model_on_finish=True. Also, logging_dir and logging_strategy if needed.
+
+The metrics: accuracy and F1. I'll need to compute them using sklearn. So, in the compute_metrics function, after getting the predictions, calculate accuracy_score and f1_score (macro or binary? Since it's binary classification, probably average='binary', pos_label=1).
+
+Wait, the IMDB dataset has labels 0 and 1. So, the F1 score should be calculated with average='binary'.
+
+Now, putting it all together. The script should be self-contained, with minimal dependencies. The user wants the code to be runnable with python3, so I need to make sure all necessary imports are included.
+
+Wait, the model might be large, so using bitsandbytes for 8-bit training? Or maybe the user wants to use LoRA with lower rank. The LoRA config would have r=8, alpha=16, etc. Let me set that up.
+
+Also, the model might require a tokenizer that truncates or pads to a certain length. Let's set max_length=512.
+
+Let me outline the steps:
+
+1. Load the tokenizer and model.
+2. Prepare the dataset and tokenize it.
+3. Set up LoRA configuration.
+4. Define training arguments.
+5. Create the Trainer and train.
+
+Now, code structure:
+
+Import sections:
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer, pipeline
+from datasets import load_dataset, load_metric
+import numpy as np
+import torch
+from peft import LoraConfig, get_peft_model, TaskType
+
+Wait, but the user might not have installed peft and bitsandbytes. But the script should be runnable, so maybe the user is expected to have those installed. The script can include the necessary code, but the user needs to install the dependencies first.
+
+Now, code steps:
+
+Load dataset:
+
+dataset = load_dataset('imdb')
+
+Tokenize function:
+
+def tokenize_function(examples):
+    return tokenizer(examples['text'], padding='max_length', truncation=True, max_length=512)
+
+But first, the tokenizer is loaded from the model.
+
+Wait, the model is 'google/gemma-2-2b-it'. Let me check if that's correct. Maybe the correct model is 'google/gemma-2b'? But I'll proceed with the given name.
+
+Then, model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
+
+Then, apply LoRA:
+
+config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    bias="none",
+    target_modules=["q_proj", "v_proj"]  # Assuming these are the correct layers for Gemma. But I'm not sure. For example, in LLaMA, it's q_proj and v_proj. Maybe Gemma uses similar layers.
+)
+
+model = get_peft_model(model, config)
+
+Then, training arguments:
+
+training_args = TrainingArguments(
+    output_dir='./results',
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    learning_rate=2e-4,
+    evaluation_strategy='epoch',
+    save_strategy='epoch',
+    load_best_model_at_end=True,
+    logging_dir='./logs',
+    logging_strategy='epoch',
+    report_to='none',  # To avoid wandb issues if not installed
+)
+
+Then, compute_metrics function:
+
+def compute_metrics(p):
+    pred, labels = p.predictions.argmax(axis=1), p.label_ids
+    acc = accuracy_score(labels, pred)
+    f1 = f1_score(labels, pred, average='binary')
+    return {'accuracy': acc, 'f1': f1}
+
+But need to import accuracy_score and f1_score from sklearn.metrics.
+
+Wait, the code needs to import those. So:
+
+from sklearn.metrics import accuracy_score, f1_score
+
+But the user might not have scikit-learn installed. But the script should include the necessary code, assuming dependencies are installed.
+
+Putting it all together:
+
+Then, create the Trainer and train.
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_datasets['train'],
+    eval_dataset=tokenized_datasets['test'],
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics,
+)
+
+trainer.train()
+
+But first, the dataset needs to be tokenized. So:
+
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+Wait, but the dataset has 'train' and 'test' splits. Also, the IMDB dataset has a 'train' and 'test' split. So, the code should tokenize both.
+
+But the model might take a while to tokenize. However, the script should handle that.
+
+Now, putting all together into code.
+
+But also, the model might be large, so using 8-bit training. Maybe add:
+
+model.gradient_checkpointing_enable()
+model.enable_input_require_grads()
+
+But that depends on the model. Also, using bitsandbytes.
+
+Wait, the code may need to load the model with quantization. For example:
+
+from transformers import BitsAndBytesConfig
+
+quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2, quantization_config=quantization_config)
+
+But the user's plan doesn't mention 8-bit training, but since it's a 2B model, maybe it's necessary. However, the user's training recipe doesn't specify that. So perhaps it's better to proceed without, unless the model is too big. But the code should be able to run, so maybe the user has sufficient resources.
+
+Alternatively, if the model is too big, the script might fail. But given the plan, proceed with the code as per the parameters.
+
+Another thing: the model 'google/gemma-2-2b-it' might not be available. Let me check. Oh, Gemma is a new model from Google, but the Hugging Face model name might be different. For example, 'google/gemma-2b' or similar. But the user's plan says 'google/gemma-2-2b-it', so I'll proceed with that.
+
+Now, putting all together into the code.
+
+Wait, the code should be a single script. So, all steps in one file.
+
+Now, code:
+
+Import all necessary libraries.
+
+Then, set the model name, load tokenizer, model, tokenize dataset, set up LoRA, training args, compute metrics, and train.
+
+But also, the dataset needs to be loaded and tokenized. Also, the code should handle the case where the model is not available. But the user's plan says to use that model, so proceed.
+
+Now, writing the code.
+
+But the user wants the code to be runnable with python3. So, the code should have all necessary imports and steps.
+
+Potential issues:
+
+- The model name may be incorrect. But the user's plan specifies it.
+
+- The LoRA configuration's target_modules may not be correct for Gemma. For example, if Gemma uses different layer names, the target_modules need to be adjusted. But since I don't have specific info, I'll assume it's similar to LLaMA, using 'q_proj' and 'v_proj'.
+
+Another thing: the model might require a specific tokenizer. For example, Gemma uses a specific tokenizer. But the code uses AutoTokenizer, which should handle that.
+
+Now, the code:
+
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+    pipeline,
+    BitsAndBytesConfig
+)
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model, TaskType
+from sklearn.metrics import accuracy_score, f1_score
+
+# Model and dataset setup
+model_name = "google/gemma-2-2b-it"
+dataset = load_dataset("imdb")
+
+# Load tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side="left")
+tokenizer.pad_token = tokenizer.eos_token
+
+# Load model with 8-bit quantization to save memory
+bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    num_labels=2,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    inference_mode=False,
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "v_proj"]
+)
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Tokenize dataset
+def tokenize_function(examples):
+    return tokenizer(
+        examples["text"],
+        padding="max_length",
+        truncation=True,
+        max_length=512,
+        return_tensors="pt"
+    )
+
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir="./gemma-imdb-finetuned",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    learning_rate=2e-4,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    logging_dir="./logs",
+    logging_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Metrics computation
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    acc = accuracy_score(labels, preds)
+    f1 = f1_score(labels, preds, average="binary")
+    return {"accuracy": acc, "f1": f1}
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+# Train
+print("Starting training...")
+trainer.train()
+
+But wait, the model might not support 8-bit training unless the necessary libraries are installed. The user needs to have bitsandbytes installed. Also, the code uses device_map="auto" which requires accelerate.
+
+But the user's script should be runnable, so they need to have all dependencies installed. The code includes the necessary steps.
+
+Another thing: the model 'google/gemma-2-2b-it' may not exist. Let me check. Oh, perhaps the correct model is 'google/gemma-2b' or 'google/gemma-2b-it'. But the user's plan says to use that model, so proceed.
+
+Now, the code should be correct. The user can run it, but they need to install the required packages: transformers, datasets, peft, bitsandbytes, scikit-learn.
+
+The code also includes the necessary imports and steps. The training will take place, and logs will be printed to stdout.
+
+I think this should work. Let me check for any possible errors.
+
+- The tokenizer's truncation_side is set to "left" which is common for some models. But if the model expects right truncation, it could affect performance. But it's a choice to make room for longer sequences.
+
+- The model's pad token is set to eos_token. For some models, this is necessary.
+
+- The target_modules for LoRA are set to "q_proj" and "v_proj", which is typical for attention layers. Assuming Gemma uses similar layer names.
+
+- The training arguments include evaluation on the test set each epoch.
+
+Yes, this should be a valid script.
+</think>
+
+```python
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+    BitsAndBytesConfig
+)
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model, TaskType
+from sklearn.metrics import accuracy_score, f1_score
+
+# Model and dataset setup
+model_name = "google/gemma-2-2b-it"
+dataset = load_dataset("imdb")
+
+# Load tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side="left")
+tokenizer.pad_token = tokenizer.eos_token
+
+# Load model with 8-bit quantization to save memory
+bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    num_labels=2,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    inference_mode=False,
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "v_proj"]
+)
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Tokenize dataset
+def tokenize_function(examples):
+    return tokenizer(
+        examples["text"],
+        padding="max_length",
+        truncation=True,
+        max_length=512,
+        return_tensors="pt"
+    )
+
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir="./gemma-imdb-finetuned",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    learning_rate=2e-4,
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    logging_dir="./logs",
+    logging_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Metrics computation
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    acc = accuracy_score(labels, preds)
+    f1 = f1_score(labels, preds, average="binary")
+    return {"accuracy": acc, "f1": f1}
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+# Train
+print("Starting training...")
+trainer.train()
+```

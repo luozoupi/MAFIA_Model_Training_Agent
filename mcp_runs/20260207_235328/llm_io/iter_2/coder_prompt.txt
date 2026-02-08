@@ -1,0 +1,176 @@
+# Task
+Finetune a small model for text classification on IMDB sentiment dataset
+
+# Plan (JSON)
+{
+  "task_summary": "Finetune a lightweight model for IMDB sentiment classification with fast iteration",
+  "recommended_model": "google/gemma-2-2b-it",
+  "training_recipe": {
+    "method": "LoRA",
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 0.0002,
+    "dataset": "imdb",
+    "metrics": [
+      "accuracy",
+      "f1"
+    ]
+  },
+  "tool_calls": [
+    {
+      "tool": "scan_hf_models",
+      "args": {
+        "query": "text classification",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "run_finetune_script",
+      "args": {
+        "script_path": "scripts/finetune_lora.py"
+      }
+    }
+  ]
+}
+
+# Runtime Environment
+Python: 3.10.18
+Conda environment: py310
+Installed packages:
+  - transformers==4.57.3
+  - peft==0.18.1
+  - trl==0.27.2
+  - torch==2.9.0+cu128
+  - datasets==4.4.1
+  - accelerate==1.12.0
+  - bitsandbytes==0.49.1
+  - evaluate==0.4.6
+GPUs:
+  - GPU 0: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free [ASSIGNED]
+  - GPU 1: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free
+  - GPU 2: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 94.4GB free
+  - GPU 3: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 6.3GB free
+  - GPU 4: NVIDIA RTX PRO 6000 Blackwell Server Edition, 95.0GB total, 6.3GB free
+Use ONLY these GPUs: [0]
+
+# Previous Script (FAILED)
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+import numpy as np
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+
+# Configuration
+model_name = "google/gemma-2-2b-it"
+dataset_name = "imdb"
+num_labels = 2
+output_dir = "./results"
+batch_size = 16
+learning_rate = 2e-4
+epochs = 3
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels, trust_remote_code=True)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Load and preprocess dataset
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+
+dataset = load_dataset(dataset_name)
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    logits = pred.predictions
+    labels = pred.label_ids
+    predictions = np.argmax(logits, axis=-1)
+    return {
+        "accuracy": accuracy.compute(predictions=predictions, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=predictions, references=labels, average="macro")["f1"]
+    }
+
+# Training arguments
+training_args = TrainingArguments(
+    output_dir=output_dir,
+    eval_strategy="epoch",
+    learning_rate=learning_rate,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
+    num_train_epochs=epochs,
+    logging_dir="./logs",
+    logging_steps=100,
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    compute_metrics=compute_metrics
+)
+
+# Start training
+print("Starting training...")
+trainer.train()
+
+# Final evaluation
+print("Evaluating...")
+results = trainer.evaluate()
+print(f"Final evaluation results: {results}")
+```
+
+# Execution Output
+{
+  "returncode": -1,
+  "stdout": "",
+  "stderr": "Command '['conda', 'run', '-n', 'py310', '--no-capture-output', 'python3', '/home/luo00466/MAFIA_Model_Training_Agent/mcp_runs/20260207_235328/finetune_script_iter1.py']' timed out after 7200 seconds"
+}
+
+# Feedback (issues found)
+{
+  "status": "failure",
+  "issues": [
+    "Training timed out after 2 hours (7200s), likely due to model size/resource constraints",
+    "Gemma-2-2b-it may be too large for available hardware with batch_size=16"
+  ],
+  "next_round_suggestions": [
+    "Reduce batch size to 8 or 4 to lower memory usage",
+    "Try smaller model variant (e.g., gemma-2-1b if available)",
+    "Add mixed precision training (FP16) if not already enabled"
+  ],
+  "metrics": {
+    "timeout_duration_seconds": 7200,
+    "original_batch_size": 16,
+    "model_size": "2.2B parameters"
+  }
+}
+
+Fix all issues and produce a corrected finetuning script as:
+```python
+# code here
+```

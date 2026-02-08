@@ -1,0 +1,99 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+import numpy as np
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+
+# Configuration
+model_name = "google/gemma-2-2b-it"
+dataset_name = "imdb"
+num_labels = 2
+output_dir = "./results"
+batch_size = 8  # Reduced from 16 to 8 for lower memory usage
+learning_rate = 2e-4
+epochs = 3
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name, 
+    num_labels=num_labels, 
+    trust_remote_code=True,
+    torch_dtype="auto"  # Use native mixed precision where possible
+)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Load and preprocess dataset
+def tokenize_function(examples):
+    return tokenizer(
+        examples["text"], 
+        padding="max_length", 
+        truncation=True, 
+        max_length=256  # Reduced sequence length to save memory
+    )
+
+dataset = load_dataset(dataset_name)
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    logits = pred.predictions
+    labels = pred.label_ids
+    predictions = np.argmax(logits, axis=-1)
+    return {
+        "accuracy": accuracy.compute(predictions=predictions, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=predictions, references=labels, average="macro")["f1"]
+    }
+
+# Training arguments with FP16 and reduced batch size
+training_args = TrainingArguments(
+    output_dir=output_dir,
+    eval_strategy="epoch",
+    learning_rate=learning_rate,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
+    num_train_epochs=epochs,
+    logging_dir="./logs",
+    logging_steps=50,
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none",
+    fp16=True,  # Enable mixed precision training
+    gradient_checkpointing=True  # Additional memory optimization
+)
+
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    compute_metrics=compute_metrics
+)
+
+# Start training
+print("Starting training with batch size 8 and FP16...")
+trainer.train()
+
+# Final evaluation
+print("Evaluating...")
+results = trainer.evaluate()
+print(f"Final evaluation results: {results}")

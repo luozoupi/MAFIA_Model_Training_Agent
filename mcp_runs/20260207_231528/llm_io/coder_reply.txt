@@ -1,0 +1,157 @@
+<think>
+Okay, I need to create a Python script for fine-tuning a model using LoRA on the IMDB dataset. The user specified the model as 'google/gemma-2-2b-it', but wait, I remember that Gemma might not be the best choice here. Let me check. Oh, right, the IMDB dataset is for text classification, and the model should be a transformer-based one. Maybe the user meant a different model, but I'll go with what's provided.
+
+First, I need to import necessary libraries. Transformers for the model and tokenizer, datasets for loading IMDB, and peft for LoRA. Also, torch for training. Wait, the user mentioned LoRA, so I need to set up the LoRA configuration. Let me recall the parameters: rank, alpha, etc. Maybe set rank to 64, which is common.
+
+Next, loading the dataset. The IMDB dataset can be loaded via load_dataset('imdb'). Then, tokenize the text. The model uses a specific tokenizer, so I'll need to get that. The labels are 'label' in the dataset, so I need to map them. Also, since it's text classification, the model should be a sequence classifier.
+
+For the model, I'll use AutoModelForSequenceClassification from the recommended model. Then apply LoRA to it. Wait, the PEFT library allows wrapping the model with get_peft_model. So I need to create a LoraConfig with the right parameters and then wrap the model.
+
+Training arguments: Output directory, number of epochs (3 as per plan), per_device_train_batch_size (16), learning rate (0.0002), evaluation strategy, logging, etc. Also, load best model at end. The metrics are accuracy and f1, so I need to compute them using evaluate library.
+
+Tokenization function: Truncate and pad to max length. Maybe 512 is safe for IMDB. Then map the dataset with this function.
+
+Data collator: Default data collator for sequence classification.
+
+Training loop: Using Trainer from transformers, passing the model, args, train dataset, eval dataset, data collator, and compute_metrics function.
+
+Wait, the user wants logs to stdout. So the script should print logs during training. The Trainer will handle that with the logging_dir and logging_steps.
+
+Let me structure the code step by step. First, imports. Then, model and tokenizer loading. Then dataset loading and tokenization. Then LoRA configuration. Then training arguments. Then the Trainer setup. Finally, training and evaluation.
+
+Wait, the model 'google/gemma-2-2b-it' might not be available or suitable. But the user's plan says to use it, so proceed. However, if there's an error, maybe the user should check the model name. But I'll code as per the plan.
+
+Also, the script needs to be runnable with python3. So all dependencies should be installed. The user might need to install transformers, datasets, peft, accelerate, evaluate, and scikit-learn for f1 score.
+
+In the compute_metrics function, the f1 score requires average. Since it's binary classification, use average='binary' and specify the labels. Or maybe use 'macro' if it's multi-class. The IMDB is binary, so average='binary' is correct.
+
+Putting it all together. Let me write the code step by step, making sure each part is correct. Also, handle the tokenization properly, maybe with a function. And make sure the labels are correctly set in the model.
+
+I think that's the plan. Let me code it now.
+</think>
+
+```python
+# finetune_lora.py
+import argparse
+import logging
+from datasets import load_dataset
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+    DataCollatorWithPadding,
+    set_seed
+)
+from peft import LoraConfig, get_peft_model
+import evaluate
+import torch
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", type=str, default="google/gemma-2-2b-it")
+    parser.add_argument("--output_dir", type=str, default="./results")
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--learning_rate", type=float, default=2e-4)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    set_seed(args.seed)
+
+    # Load dataset
+    dataset = load_dataset("imdb")
+    logger.info("Loaded IMDB dataset")
+
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+
+    # Tokenize function
+    def tokenize examples(examples):
+        return tokenizer(
+            examples["text"],
+            padding="max_length",
+            truncation=True,
+            max_length=512
+        )
+
+    tokenized_dataset = dataset.map(tokenize_examples, batched=True, remove_columns=["text", "label"])
+
+    # Load model
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model_name,
+        num_labels=2
+    )
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Configure LoRA
+    peft_config = LoraConfig(
+        r=64,
+        lora_alpha=128,
+        lora_dropout=0.1,
+        target_modules=["q_proj", "v_proj"],
+        bias="none",
+        task_type="SEQ_CLS"
+    )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+
+    # Metrics
+    accuracy = evaluate.load("accuracy")
+    f1 = evaluate.load("f1")
+
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        preds = predictions.argmax(axis=-1)
+        return {
+            "accuracy": accuracy.compute(predictions=preds, references=labels)["accuracy"],
+            "f1": f1.compute(predictions=preds, references=labels, average="binary")["f1"]
+        }
+
+    # Training arguments
+    training_args = TrainingArguments(
+        output_dir=args.output_dir,
+        num_train_epochs=args.epochs,
+        per_device_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        logging_dir="./logs",
+        logging_steps=10,
+        load_best_model_at_end=True,
+        metric_for_best_model="accuracy",
+        report_to="none"
+    )
+
+    # Data collator
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_dataset["train"],
+        eval_dataset=tokenized_dataset["test"],
+        data_collator=data_collator,
+        compute_metrics=compute_metrics
+    )
+
+    # Train
+    logger.info("Starting training")
+    train_result = trainer.train()
+    logger.info(f"Training completed. Metrics: {train_result.metrics}")
+
+    # Evaluate
+    logger.info("Evaluating on test set")
+    metrics = trainer.evaluate()
+    logger.info(f"Final evaluation results: {metrics}")
+
+if __name__ == "__main__":
+    main()
+```

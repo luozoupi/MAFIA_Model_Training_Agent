@@ -1,0 +1,156 @@
+<think>
+Okay, let's see. The user's script failed because it timed out after 2 hours. The feedback says that the model might be too big for the available hardware, especially with a batch size of 16. The GPU assigned has 95GB memory, but maybe even that's not enough for Gemma 2-2b with LoRA and batch size 16.
+
+First, I need to adjust the batch size. The suggestion is to reduce it to 8 or 4. Let's go with 8 first to see if that helps. Also, adding mixed precision (FP16) could save memory. How to enable that? In the TrainingArguments, there's a parameter called fp16. So setting that to True should help.
+
+Another suggestion is to try a smaller model variant. But the user's plan specifies "google/gemma-2-2b-it". Maybe that's the only available one, or maybe there's a 1b version. But since the user's plan says 2b, maybe we can't change that. So focus on batch size and FP16.
+
+Also, check if the model is compatible with the packages. The packages are up to date. The script uses LoRA correctly with PEFT. Maybe the token length is too long? The original script uses max_length=512. Maybe some samples are too long, but truncating should handle that. Not sure if that's a problem here.
+
+Another thing: the training script might not be using all available resources efficiently. Maybe the number of epochs is 3, which might take too long. But the user's plan specifies 3 epochs, so we can't change that unless the feedback suggests it. The feedback didn't mention epochs, so leave that as is.
+
+So the main changes are:
+
+1. Reduce batch size from 16 to 8.
+2. Enable FP16 training.
+3. Maybe also check if gradient accumulation can be used to simulate a larger batch size without increasing memory. But the feedback didn't mention that. Let's stick to the suggestions.
+
+Let me modify the script accordingly.
+
+In the TrainingArguments, add fp16=True. Also, set per_device_train_batch_size and per_device_eval_batch_size to 8.
+
+Wait, the original script uses batch_size=16, and that's set in the TrainingArguments. So changing that variable to 8 and passing it should work.
+
+Also, check if the model can be loaded with low_cpu_memory_usage or other memory-saving options. The original script uses from_pretrained without those. Maybe adding some parameters like load_in_8bit or 4bit? But the user's environment has bitsandbytes installed. However, Gemma might not support 8bit quantization yet. Let me check. The model is Gemma 2-2b-it. I'm not sure if it's compatible with bitsandbytes. The original script didn't use it, so maybe the user didn't have that in their setup. Since the feedback didn't mention it, maybe it's better to stick with FP16 for now.
+
+So the main changes are batch size and FP16. Let me adjust the script.
+
+Another thing: the LoRA configuration. The target_modules for Gemma might need to be adjusted. The original script uses ["q_proj", "k_proj", "v_proj", "o_proj"], which is typical for transformers. But maybe Gemma has different layer names. However, the initial script didn't have an error on that, so maybe it's correct. The error was a timeout, not a shape mismatch. So probably the LoRA setup is okay.
+
+So the corrected script would have:
+
+- batch_size = 8
+- training_args with fp16=True
+
+Let me write that into the code.
+
+Also, maybe the logging steps can be adjusted if the number of steps is too high. But the original is 100, which is probably okay.
+
+Another possible optimization: use a smaller sequence length. The original uses 512. Maybe reducing that to 256 or 128 would save memory. Let me check. The user's plan says "fast iteration", so maybe shorter sequences would help. But the feedback didn't mention that. However, since the problem is memory, reducing the max_length could help. Let me try that as an additional step. For example, set max_length=256. That would reduce the memory per sample, allowing a larger batch size. But since the user's suggestion is to reduce batch size, maybe combining both approaches would be better.
+
+So in the tokenize_function, change max_length from 512 to 256. That would reduce the input size, thus memory usage. This is another adjustment to help with the timeout.
+
+So three changes:
+
+1. Batch size to 8.
+2. FP16 enabled.
+3. Max sequence length to 256.
+
+Let me implement those in the script.
+
+Testing if these changes would fit into the GPU's memory. The original batch size of 16 with 512 tokens might be too much. Reducing tokens and batch size should help.
+
+So the final script would have these modifications. Let me write that.
+</think>
+
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+import numpy as np
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model
+from datasets import load_dataset
+import evaluate
+
+# Configuration
+model_name = "google/gemma-2-2b-it"
+dataset_name = "imdb"
+num_labels = 2
+output_dir = "./results"
+batch_size = 8  # Reduced from 16 to 8 for lower memory usage
+learning_rate = 2e-4
+epochs = 3
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name, 
+    num_labels=num_labels, 
+    trust_remote_code=True,
+    torch_dtype="auto"  # Use native mixed precision where possible
+)
+
+# Configure LoRA
+peft_config = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    bias="none",
+    task_type="SEQ_CLS"
+)
+
+model = get_peft_model(model, peft_config)
+model.print_trainable_parameters()
+
+# Load and preprocess dataset
+def tokenize_function(examples):
+    return tokenizer(
+        examples["text"], 
+        padding="max_length", 
+        truncation=True, 
+        max_length=256  # Reduced sequence length to save memory
+    )
+
+dataset = load_dataset(dataset_name)
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Metrics
+accuracy = evaluate.load("accuracy")
+f1 = evaluate.load("f1")
+
+def compute_metrics(pred):
+    logits = pred.predictions
+    labels = pred.label_ids
+    predictions = np.argmax(logits, axis=-1)
+    return {
+        "accuracy": accuracy.compute(predictions=predictions, references=labels)["accuracy"],
+        "f1": f1.compute(predictions=predictions, references=labels, average="macro")["f1"]
+    }
+
+# Training arguments with FP16 and reduced batch size
+training_args = TrainingArguments(
+    output_dir=output_dir,
+    eval_strategy="epoch",
+    learning_rate=learning_rate,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
+    num_train_epochs=epochs,
+    logging_dir="./logs",
+    logging_steps=50,
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    report_to="none",
+    fp16=True,  # Enable mixed precision training
+    gradient_checkpointing=True  # Additional memory optimization
+)
+
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["test"],
+    compute_metrics=compute_metrics
+)
+
+# Start training
+print("Starting training with batch size 8 and FP16...")
+trainer.train()
+
+# Final evaluation
+print("Evaluating...")
+results = trainer.evaluate()
+print(f"Final evaluation results: {results}")
+```

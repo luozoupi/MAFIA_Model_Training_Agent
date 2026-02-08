@@ -1,0 +1,5 @@
+{
+  "returncode": 2,
+  "stdout": "",
+  "stderr": "python3: can't open file '/home/luo00466/MAFIA_Model_Training_Agent/mcp_runs/20260207_231222/mcp_runs/20260207_231222/finetune_script.py': [Errno 2] No such file or directory\n"
+}
