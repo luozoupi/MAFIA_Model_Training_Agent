@@ -7,3 +7,10 @@
 
 __pycache__/
 *.pyc
+
+# large model files
+*.safetensors
+*.pt
+*.pth
+*.bin
+mcp_runs/*/results/
